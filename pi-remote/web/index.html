@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pi · remote</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1017; --bg2: #131826; --bg3: #1b2233;
+    --tx: #e6e9f0; --muted: #8b93a7; --accent: #7aa2ff; --ok: #3ddc84;
+    --warn: #ffb648; --err: #ff6b6b; --border: #263049;
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, #1a2340 0%, var(--bg) 55%);
+    color: var(--tx); font: 15px/1.5 system-ui, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column;
+  }
+  .screen { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .hidden { display: none !important; }
+
+  /* ---------- auth ---------- */
+  #auth { align-items: center; justify-content: center; gap: 14px; padding: 24px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 18px;
+          padding: 34px 38px; width: min(380px, 100%); text-align: center;
+          box-shadow: 0 24px 80px #0006; backdrop-filter: blur(8px); }
+  .card h1 { font-size: 20px; margin: 10px 0 2px; letter-spacing: .3px; }
+  .card p { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
+  .card .logo { font-size: 40px; }
+  #pin {
+    width: 100%; font: 600 30px/1.2 var(--mono); letter-spacing: 14px; text-align: center;
+    padding: 14px 6px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--tx); outline: none;
+  }
+  #pin:focus { border-color: var(--accent); }
+  .btn {
+    cursor: pointer; border: 1px solid var(--border); background: var(--bg3); color: var(--tx);
+    border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #0b0e14; }
+  .btn.danger { border-color: #6e2f2f; color: var(--err); }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:disabled { opacity: .5; cursor: default; filter: none; }
+  #authErr { color: var(--err); font-size: 13px; min-height: 18px; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); background: #0d1017cc; backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 2;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--err); flex: none; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  .meta { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta b { color: var(--tx); font-weight: 600; }
+  header .spacer { flex: 1; }
+
+  /* ---------- transcript ---------- */
+  #chat { flex: 1; overflow-y: auto; padding: 18px 0 12px; scroll-behavior: smooth; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; display: flex; flex-direction: column; gap: 10px; }
+  .msg { border-radius: 14px; padding: 10px 14px; white-space: pre-wrap; overflow-x: auto;
+         word-wrap: break-word; animation: pop .18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+  .msg.user { background: #24304d; border: 1px solid #2f3e66; align-self: flex-end; max-width: 85%; }
+  .msg.assistant { background: var(--bg2); border: 1px solid var(--border); }
+  .msg.assistant.streaming { border-color: #3b4c7a; }
+  .msg .who { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 4px; }
+  .msg code, .msg pre { font-family: var(--mono); font-size: 13px; }
+  .msg pre { background: #0a0d13; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; overflow-x: auto; }
+  .think { color: var(--muted); font-style: italic; font-size: 13.5px; }
+  .call { margin-top: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  .call .head { padding: 6px 10px; background: var(--bg3); color: var(--accent); font-family: var(--mono); cursor: pointer; user-select: none; }
+  .call .args { padding: 4px 10px 8px; color: var(--tx); font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; }
+  .tool { font-size: 13px; border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px;
+          padding: 7px 12px; background: var(--bg2); }
+  .tool.err { border-left-color: var(--err); }
+  .tool.ok { border-left-color: var(--ok); }
+  .tool.run { border-left-color: var(--warn); }
+  .tool .t { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+  .tool .out { margin-top: 5px; white-space: pre-wrap; color: #c4cadb; font-family: var(--mono); font-size: 12.5px;
+               max-height: 220px; overflow: auto; }
+  .sys { align-self: center; color: var(--muted); font-size: 12.5px; background: transparent; padding: 2px 10px; }
+  .sys.warn { color: var(--warn); }
+  .sys.danger { color: var(--warn); border: 1px solid #4a3a15; background: #1c1608; border-radius: 24px; }
+
+  /* approval dialog */
+  .ask { align-self: center; display: flex; flex-direction: column; gap: 8px; border: 1px solid #4a3a15;
+         background: #1c1608; border-radius: 14px; padding: 12px 16px; max-width: 560px; width: 100%; }
+  .ask .q { white-space: pre-wrap; font-size: 13.5px; }
+  .ask .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .ask.done { opacity: .55; }
+
+  /* ---------- composer ---------- */
+  footer { border-top: 1px solid var(--border); background: #0d1017cc; backdrop-filter: blur(8px);
+           padding: 10px 16px 14px; }
+  .composer { max-width: 860px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  #prompt { flex: 1; resize: none; max-height: 160px; min-height: 44px; padding: 11px 13px;
+            border-radius: 12px; border: 1px solid var(--border); background: var(--bg2);
+            color: var(--tx); font: 14px/1.45 system-ui, sans-serif; outline: none; }
+  #prompt:focus { border-color: var(--accent); }
+  .steer { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted);
+           user-select: none; cursor: pointer; padding-bottom: 3px; }
+  .steer input { accent-color: var(--accent); }
+  .hint { max-width: 860px; margin: 6px auto 0; font-size: 11.5px; color: var(--muted); }
+  kbd { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font: 11px var(--mono); }
+</style>
+</head>
+<body>
+
+<!-- ============ AUTH ============ -->
+<div id="auth" class="screen">
+  <div class="card">
+    <div class="logo">🛰️</div>
+    <h1>pi remote</h1>
+    <p>Introduce el PIN de 6 dígitos que muestra la terminal donde corre pi.</p>
+    <input id="pin" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+           placeholder="••••••" aria-label="PIN">
+    <div id="authErr" role="alert"></div>
+    <button id="connect" class="btn primary" style="width:100%; margin-top:6px">Conectar</button>
+  </div>
+</div>
+
+<!-- ============ MAIN ============ -->
+<div id="app" class="screen hidden">
+  <header>
+    <span class="dot" id="dot"></span>
+    <div class="meta"><b id="model">…</b> · <span id="cwd"></span> · <span id="state">conectando</span></div>
+    <div class="spacer"></div>
+    <button class="btn danger" id="stopBtn" title="Detiene la ejecución actual de pi">⏹ Stop</button>
+  </header>
+
+  <div id="chat"><div class="wrap" id="wrap"></div></div>
+
+  <footer>
+    <div class="composer">
+      <label class="steer" title="Si pi está trabajando, 'steer' interrumpe el flujo con tu instrucción"><input type="checkbox" id="steer2"><span>Steer</span></label>
+      <textarea id="prompt" rows="1" placeholder="Escribe un prompt para pi…"></textarea>
+      <button class="btn primary" id="send">Enviar ➤</button>
+    </div>
+    <div class="hint"><kbd>Enter</kbd> envía · <kbd>Shift</kbd>+<kbd>Enter</kbd> salto de línea · la aprobación de comandos peligrosos también llegará aquí si tu terminal no responde</div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const wrap = $("wrap"), chat = $("chat");
+  let ws = null, authed = false, pinned = true, streamingId = null;
+  let reconnect = 0;
+
+  const wsUrl = (() => {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${location.host}/ws`;
+  })();
+
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function autoScroll() {
+    if (pinned) chat.scrollTop = chat.scrollHeight;
+  }
+  chat.addEventListener("scroll", () => {
+    pinned = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 60;
+  });
+
+  /* ---------- build DOM nodes ---------- */
+  function el(cls, html) {
+    const d = document.createElement("div");
+    d.className = cls;
+    if (html !== undefined) d.innerHTML = html;
+    wrap.appendChild(d);
+    autoScroll();
+    return d;
+  }
+
+  function userMsg(text) {
+    el("msg user", `<div class="who">tú · remote</div>${esc(text)}`);
+  }
+  function sysMsg(text, cls = "sys") {
+    el(cls, esc(text));
+  }
+
+  function renderAssistantBlocks(node, blocks) {
+    let html = `<div class="who">pi</div>`;
+    for (const b of blocks) {
+      if (b.k === "text" && b.t) html += `<div>${md(b.t)}</div>`;
+      else if (b.k === "think" && b.t) html += `<div class="think">💭 think: ${esc(b.t.slice(0, 600))}${b.t.length > 600 ? "…" : ""}</div>`;
+      else if (b.k === "call") html += callHtml(b, true);
+    }
+    node.innerHTML = html;
+    autoScroll();
+  }
+  function callHtml(b, expanded) {
+    return `<details class="call" ${expanded ? "" : "open"}><summary class="head">⚙ ${esc(b.name)}</summary><div class="args">${esc(b.args || "")}</div></details>`;
+  }
+
+  /* tiny markdown: code fences + inline code + bold */
+  function md(src) {
+    let out = esc(src);
+    out = out.replace(/```([\s\S]*?)```/g, (_, code) => `<pre>${code.replace(/^\n/, "")}</pre>`);
+    out = out.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    out = out.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>");
+    out = out.replace(/^###?\s?/gm, "");
+    return out;
+  }
+
+  const tools = new Map();
+  function toolNode(id, cls, title, out) {
+    let n = tools.get(id);
+    if (!n) {
+      n = el("tool " + cls, `<div class="t">${esc(title)}</div><div class="out"></div>`);
+      tools.set(id, n);
+    } else {
+      n.className = "tool " + cls;
+      n.querySelector(".t").textContent = title;
+    }
+    if (out !== undefined) n.querySelector(".out").textContent = out || n.querySelector(".out").textContent;
+    return n;
+  }
+
+  /* ---------- frame handling ---------- */
+  function applyEv(ev) {
+    if (!ev || !ev.k) return;
+    switch (ev.k) {
+      case "user":
+        if (ev.m && ev.m.text) userMsg(ev.m.text);
+        break;
+      case "message": {
+        const m = ev.m;
+        if (m && m.role === "assistant") {
+          const n = el("msg assistant");
+          renderAssistantBlocks(n, m.blocks || []);
+        } else if (m && m.role === "user" && m.text) userMsg(m.text);
+        break;
+      }
+      case "ass_update": {
+        streamingId = null;
+        let last = wrap.lastElementChild;
+        if (!last || !last.classList.contains("assistant")) {
+          last = el("msg assistant streaming", `<div class="who">pi · escribiendo…</div>`);
+        }
+        renderAssistantBlocks(last, ev.blocks || []);
+        last.classList.remove("streaming");
+        break;
+      }
+      case "turn":
+        sysMsg(`— turno ${ev.i + 1} —`);
+        break;
+      case "agent_start":
+        sysMsg("● pi empieza a trabajar…");
+        break;
+      case "agent_settled":
+        sysMsg(ev.aborted ? "⏹ finalizado (abortado)" : "✓ pi terminó · listo para el próximo prompt");
+        break;
+      case "model":
+        $("model").textContent = ev.model || "—";
+        break;
+      case "tool_start":
+        toolNode(ev.id, "run", `⚙ ${ev.name} ${ev.args ? "· " + ev.args.slice(0, 90) : ""} · ejecutando…`, undefined);
+        break;
+      case "tool_update":
+        toolNode(ev.id, "run", "… saliendo…", ev.partial);
+        break;
+      case "tool_end":
+        toolNode(ev.id, ev.error ? "err" : "ok",
+          `${ev.error ? "✗" : "✓"} ${ev.name} · ${ev.durationMs != null ? ev.durationMs + " ms" : ""}`,
+          ev.text);
+        break;
+      case "waiting_ui":
+        sysMsg(`⏸ pi espera input local (terminal) — ${ev.kind}`, "sys warn");
+        break;
+      case "waiting_end":
+        sysMsg("▶ pi continúa");
+        break;
+      case "clients":
+        break;
+      default:
+        break;
+    }
+  }
+
+  function handleFrame(f) {
+    try {
+      if (f.type === "hello") {
+        authed = true;
+        $("auth").classList.add("hidden");
+        $("app").classList.remove("hidden");
+        setDot(true); setModel(f.session);
+        if (f.replay) for (const r of f.replay) applyEv(r.ev);
+        sysMsg("— replays de eventos recientes —");
+        $("prompt").focus();
+      } else if (f.type === "event") {
+        applyEv(f.ev);
+      } else if (f.type === "status") {
+        setModel(f.data);
+        if (f.data) updateSteer(!f.data.idle);
+      } else if (f.type === "ui") {
+        renderAsk(f.id, f.title);
+      } else if (f.type === "ui_resolved") {
+        const n = document.querySelector(`.ask[data-id="${f.id}"]`);
+        if (n) { n.classList.add("done"); n.querySelectorAll("button").forEach((b) => (b.disabled = true)); }
+      } else if (f.type === "error") {
+        sysMsg("⚠ " + f.message, "sys warn");
+      }
+    } catch (e) {
+      /* never let a malformed frame kill the client */
+    }
+  }
+
+  function renderAsk(id, title) {
+    const old = document.querySelector(`.ask[data-id="${id}"]`);
+    if (old) return;
+    const n = document.createElement("div");
+    n.className = "ask";
+    n.dataset.id = id;
+    n.innerHTML = `<div class="q">${esc(title)}</div>
+      <div class="row">
+        <button class="btn primary" data-d="Allow">✅ Permitir</button>
+        <button class="btn danger" data-d="Deny">⛔ Bloquear</button>
+      </div>`;
+    n.querySelectorAll("button").forEach((b) => {
+      b.addEventListener("click", () => send({ type: "approve", id, decision: b.dataset.d }));
+    });
+    wrap.appendChild(n);
+    autoScroll();
+    n.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+
+  /* ---------- websocket ---------- */
+  function setDot(on) { $("dot").classList.toggle("on", on); $("state").textContent = on ? "en línea" : "desconectado"; }
+  function setModel(s) {
+    if (!s) return;
+    if (s.model) $("model").textContent = s.model;
+    if (s.cwd) $("cwd").textContent = s.cwd;
+  }
+  function updateSteer(streaming) {
+    const a = $("steer2");
+    a.disabled = !streaming;
+    if (streaming) a.checked = false;
+  }
+
+  function send(obj) {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+  }
+
+  function connect(pin) {
+    authed = false;
+    ws = new WebSocket(wsUrl);
+    let authedHere = false;
+    const t = setTimeout(() => { if (!authedHere) ws?.close(); }, 9000);
+    ws.onopen = () => {
+      authedHere = true;
+      clearTimeout(t);
+      send({ type: "auth", pin });
+    };
+    ws.onmessage = (e) => {
+      let f;
+      try { f = JSON.parse(e.data); } catch { return; }
+      handleFrame(f);
+    };
+    ws.onclose = (e) => {
+      authed = false; authedHere = true;
+      setDot(false);
+      $("steer2").checked = false;
+      if (!authedHere && pin) {
+        $("authErr").textContent = `PIN rechazado o expirado (${e.code})`;
+        return;
+      }
+      if ($("app").classList.contains("hidden")) {
+        // never got in — retry quietly
+        setTimeout(() => connect(pin), 2500);
+        return;
+      }
+      sysMsg("⚠ conexión perdida — reintento automático…", "sys warn");
+      reconnect = Math.min(reconnect + 1, 5);
+      setTimeout(() => retryReconnect(), 800 * reconnect * reconnect);
+    };
+  }
+  function retryReconnect() {
+    if ($("pin").value) connect($("pin").value);
+  }
+
+  /* ---------- wire up UI ---------- */
+  $("connect").addEventListener("click", doAuth);
+  $("pin").addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth(); });
+  function doAuth() {
+    const pin = $("pin").value.replace(/\D/g, "");
+    if (pin.length !== 6) { $("authErr").textContent = "El PIN tiene 6 dígitos"; return; }
+    $("authErr").textContent = "";
+    setDot(false);
+    connect(pin);
+    setTimeout(() => { /* show app if not yet */ }, 0);
+  }
+  $("stopBtn").addEventListener("click", () => send({ type: "stop" }));
+  $("send").addEventListener("click", sendPrompt);
+  $("prompt").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendPrompt(); }
+  });
+  $("prompt").addEventListener("input", (e) => {
+    const t = e.target;
+    t.style.height = "auto";
+    t.style.height = Math.min(t.scrollHeight, 160) + "px";
+  });
+  function sendPrompt() {
+    const t = $("prompt");
+    const text = t.value.trim();
+    if (!text || !authed) return;
+    send({ type: "prompt", text, steer: $("steer2").checked });
+    userMsg(text);
+    t.value = "";
+    t.style.height = "auto";
+    t.focus();
+  }
+})();
+</script>
+</body>
+</html>

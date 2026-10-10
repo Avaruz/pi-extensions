@@ -1,0 +1,35 @@
+{
+  "name": "pi-remote",
+  "version": "0.1.0",
+  "description": "Remote control for pi sessions: browser UI and TUI client over WebSocket, PIN auth, optional cloudflared/ngrok tunnel",
+  "type": "module",
+  "keywords": ["pi-package", "pi-extension", "remote", "websocket", "tunnel"],
+  "license": "MIT",
+  "bin": {
+    "pi-remote": "./bin/pi-remote.mjs"
+  },
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "files": ["index.ts", "server/", "bin/", "web/", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
