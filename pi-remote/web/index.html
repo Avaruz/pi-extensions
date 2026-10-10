@@ -150,6 +150,7 @@
   const $ = (id) => document.getElementById(id);
   const wrap = $("wrap"), chat = $("chat");
   let ws = null, authed = false, pinned = true, streamingId = null;
+  let lastSentPrompt = null; // last prompt rendered locally; the server echo of it must be skipped
   let reconnect = 0;
 
   const wsUrl = (() => {
@@ -239,12 +240,14 @@
           renderAssistantBlocks(n, m.blocks || []);
           n.classList.remove("streaming");
         } else if (m && m.role === "user" && m.text) {
-          // The sending client already rendered this prompt locally; skip the
-          // server-echoed copy so it doesn't appear twice.
-          const last = wrap.lastElementChild;
-          const isSamePrompt = last && last.classList.contains("user")
-            && last.textContent.replace(/^tú · remote/, "").trim() === m.text.trim();
-          if (!isSamePrompt) userMsg(m.text);
+          // Dedupe the server-echo of OUR own prompt by text (not DOM position,
+          // because sys/turn/tool nodes can land in between).
+          if (m.text.trim() === lastSentPrompt) {
+            lastSentPrompt = null;
+          } else {
+            lastSentPrompt = null;
+            userMsg(m.text);
+          }
         }
         break;
       }
@@ -421,6 +424,7 @@
     const text = t.value.trim();
     if (!text || !authed) return;
     send({ type: "prompt", text, steer: $("steer2").checked });
+    lastSentPrompt = text;
     userMsg(text);
     t.value = "";
     t.style.height = "auto";
