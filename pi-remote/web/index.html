@@ -232,9 +232,20 @@
       case "message": {
         const m = ev.m;
         if (m && m.role === "assistant") {
-          const n = el("msg assistant");
+          // Reuse the live/streaming bubble if it's still the last one, so the
+          // message_end rewrite doesn't spawn a second (echo) bubble.
+          const last = wrap.lastElementChild;
+          const n = (last && last.classList.contains("assistant")) ? last : el("msg assistant");
           renderAssistantBlocks(n, m.blocks || []);
-        } else if (m && m.role === "user" && m.text) userMsg(m.text);
+          n.classList.remove("streaming");
+        } else if (m && m.role === "user" && m.text) {
+          // The sending client already rendered this prompt locally; skip the
+          // server-echoed copy so it doesn't appear twice.
+          const last = wrap.lastElementChild;
+          const isSamePrompt = last && last.classList.contains("user")
+            && last.textContent.replace(/^tú · remote/, "").trim() === m.text.trim();
+          if (!isSamePrompt) userMsg(m.text);
+        }
         break;
       }
       case "ass_update": {

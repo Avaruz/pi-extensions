@@ -107,10 +107,17 @@ function applyEv(ev) {
       const m = ev.m;
       if (m?.role === "user" && m.text) line(`  ${CYAN}tú: ${m.text.slice(0, 400)}${RESET}`);
       else if (m?.role === "assistant") {
-        streamingText = "";
-        sys("pi responde…");
-        renderAssistantBlocks(m.blocks);
-        process.stdout.write("\n");
+        // message_end re-sends the full text; if we already streamed it via
+        // ass_update deltas, re-printing it would show the answer twice.
+        const lastText = [...(m.blocks || [])].reverse().find((b) => b?.k === "text");
+        if (lastText && lastText.t === streamingText) {
+          process.stdout.write("\n");
+        } else {
+          streamingText = "";
+          sys("pi responde…");
+          renderAssistantBlocks(m.blocks);
+          process.stdout.write("\n");
+        }
       }
       break;
     }
