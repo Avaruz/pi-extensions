@@ -260,7 +260,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       const pin = String(Math.floor(100000 + Math.random() * 900000));
-      const webDir = path.dirname(fileURLToPath(new URL("../web/index.html", import.meta.url)));
+      const webDir = path.dirname(fileURLToPath(new URL("./web/index.html", import.meta.url)));
       const gw = new Gateway({
         port,
         pin,
