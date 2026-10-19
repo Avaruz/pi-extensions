@@ -5,15 +5,21 @@ Colección de extensiones para [pi](https://pi.dev) (pi-coding-agent).
 | Paquete | Descripción |
 |---|---|
 | [`pi-remote/`](pi-remote/) | Remote control de una sesión de pi: UI web + cliente TUI sobre WebSocket, PIN, túnel opcional |
+| [`pi-ollama-local/`](pi-ollama-local/) | Auto-descubre los modelos chat de un servidor Ollama (sin editar `models.json`) |
 
 ## Instalar un paquete en un equipo
 
 ```bash
 git clone <este-repo> pi-extensions && cd pi-extensions
-# extensión global en pi:
+
+# pi-remote (tiene dependencias):
 cd pi-remote
 npm pkg delete peerDependencies   # opcional: evita auto-instalar los peers pesados
 npm install
+pi install .
+
+# pi-ollama-local (sin dependencias):
+cd ../pi-ollama-local
 pi install .
 ```
 

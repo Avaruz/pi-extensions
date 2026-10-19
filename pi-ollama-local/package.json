@@ -1,0 +1,22 @@
+{
+  "name": "pi-ollama-local",
+  "version": "0.1.0",
+  "description": "Auto-discovers chat models from an Ollama server and registers them as the ollama-local provider in pi",
+  "keywords": ["pi-package", "pi-extension", "ollama", "local-models"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "files": ["index.ts", "README.md"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
