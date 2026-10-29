@@ -1,0 +1,22 @@
+{
+  "name": "pi-failover",
+  "version": "0.1.0",
+  "description": "Failover Router — Virtual model que usa un proveedor primario (pago) y automáticamente cae a un fallback (local/Ollama) cuando se agota el presupuesto, se excede el rate-limit, o falla el proveedor primario",
+  "keywords": ["pi-package", "pi-extension", "failover", "routing"],
+  "license": "MIT",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "files": ["index.ts", "README.md"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
